@@ -1,0 +1,6 @@
+Ana,true,830
+Luis,false,800
+Carlos,true,900
+Marta,false,1000
+Juan,false,1000
+Sofia,true,1000
