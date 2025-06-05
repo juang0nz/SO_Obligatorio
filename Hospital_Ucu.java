@@ -1,192 +1,138 @@
-import java.util.concurrent.Semaphore;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
+import java.util.concurrent.PriorityBlockingQueue;
 
-public class Hospital_Ucu {
+public class SimulacionCentroMedico {
+    public static int tiempoGlobal = 0; // en minutos desde 08:00
+    public static final PriorityBlockingQueue<Paciente> colaPacientes = new PriorityBlockingQueue<>();
+    public static final Object lock = new Object();
 
     public static void main(String[] args) {
-        Semaphore medico = new Semaphore(1);
-        SecretariaPacientes Secretaria = new SecretariaPacientes();
-        int tiempoSimulado = 0;
+        GeneradorPacientes generador = new GeneradorPacientes();
+        generador.start();
 
-        List<Paciente> listaPacientes = leerPacientesDesdeArchivo("pacientes.txt");
-        List<Paciente> pacientesAEliminar = new ArrayList<>();
-
-        // Iniciar el hilo del médico
-        new Hilo_Medico(Secretaria, medico).start();
-
-        while (!listaPacientes.isEmpty()) {
-            for (int i = 0; i < listaPacientes.size(); i++) {
-                Paciente p = listaPacientes.get(i);
-                if (p.horaLlegada == tiempoSimulado) {
-                    new Hilo_Paciente(p.nombre, p.urgente, p.horaLlegada, Secretaria, medico).start();
-                    pacientesAEliminar.add(p);
+        Thread reloj = new Thread(() -> {
+            while (tiempoGlobal < 720) { // 12 horas simuladas
+                synchronized (lock) {
+                    lock.notifyAll();
+                }
+                try {
+                    Thread.sleep(5); // acelerado para no demorar
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                synchronized (lock) {
+                    tiempoGlobal++;
                 }
             }
-            listaPacientes.removeAll(pacientesAEliminar);
-            pacientesAEliminar.clear();
+        });
+        reloj.start();
+
+        Thread secretaria = new Thread(() -> {
+            while (true) {
+                synchronized (lock) {
+                    while (colaPacientes.isEmpty() || colaPacientes.peek().horaLlegada > tiempoGlobal) {
+                        try {
+                            lock.wait();
+                            if (tiempoGlobal >= 720) return;
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    Paciente p = colaPacientes.poll();
+                    int finAtencion = tiempoGlobal + p.duracion;
+                    String horaInicio = getHoraFormateada(tiempoGlobal);
+                    String horaFin = getHoraFormateada(finAtencion);
+                    System.out.println(horaInicio + " Atendiendo a: " + p + " (termina a las " + horaFin + ")");
+                    tiempoGlobal = finAtencion;
+                }
+            }
+        });
+        secretaria.start();
+    }
+
+    public static String getHoraFormateada(int minutosDesde8AM) {
+        int hora = 8 + (minutosDesde8AM / 60);
+        int minutos = minutosDesde8AM % 60;
+        return String.format("%02d:%02d", hora, minutos);
+    }
+}
+
+class GeneradorPacientes extends Thread {
+    Random rand = new Random();
+    String[] nombres = {"Juan", "Ana", "Carlos", "Luisa", "Sofía", "Mateo", "Laura", "Pedro", "Valentina", "José"};
+
+    public void run() {
+        for (int i = 0; i < 3; i++) {
+            agregarPaciente(randomTipo(), nombres[rand.nextInt(nombres.length)], 0);
+        }
+
+        while (SimulacionCentroMedico.tiempoGlobal < 720) {
+            synchronized (SimulacionCentroMedico.lock) {
+                if (SimulacionCentroMedico.tiempoGlobal % 60 == 0 && SimulacionCentroMedico.tiempoGlobal != 0) {
+                    int cantidad = rand.nextInt(3) + 1;
+                    for (int i = 0; i < cantidad; i++) {
+                        agregarPaciente(randomTipo(), nombres[rand.nextInt(nombres.length)], SimulacionCentroMedico.tiempoGlobal);
+                    }
+                }
+            }
             try {
-                Thread.sleep(1); // Simula el paso del tiempo (1 segundo)
+                Thread.sleep(5); // acelerado
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            tiempoSimulado++;
         }
     }
 
-    static List<Paciente> leerPacientesDesdeArchivo(String nombreArchivo) {
-        List<Paciente> pacientes = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(nombreArchivo))) {
-            String linea;
-            while ((linea = br.readLine()) != null) {
-                String[] partes = linea.split(",");
-                if (partes.length == 3) {
-                    String nombre = partes[0].trim();
-                    boolean urgente = Boolean.parseBoolean(partes[1].trim());
-                    int horaLlegada = Integer.parseInt(partes[2].trim());
-                    pacientes.add(new Paciente(nombre, urgente, horaLlegada));
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Error leyendo el archivo: " + e.getMessage());
+    private void agregarPaciente(String tipo, String nombre, int hora) {
+        int prioridad;
+        String prioridadTexto;
+        if ("emergencia".equals(tipo)) {
+            prioridad = 10;
+            prioridadTexto = "EMERGENCIA";
+        } else if ("control".equals(tipo)) {
+            prioridad = 5;
+            prioridadTexto = "CONTROL";
+        } else {
+            prioridad = 3;
+            prioridadTexto = "ANÁLISIS";
         }
-        return pacientes;
+
+        int duracion = tipo.equals("emergencia") ? 10 : rand.nextInt(5) + 5;
+        Paciente p = new Paciente(nombre, tipo, hora, prioridad, prioridadTexto, duracion);
+        SimulacionCentroMedico.colaPacientes.add(p);
+        System.out.println(SimulacionCentroMedico.getHoraFormateada(hora) + " Programado: " + p);
     }
 
-    // Paciente con nombre y prioridad
-    static class Paciente {
-        String nombre;
-        boolean urgente;
-        int horaLlegada;
+    private String randomTipo() {
+        String[] tipos = {"control", "analisis", "emergencia"};
+        return tipos[rand.nextInt(tipos.length)];
+    }
+}
 
-        Paciente(String nombre, boolean urgente, int horaLlegada) {
-            this.nombre = nombre;
-            this.urgente = urgente;
-            this.horaLlegada = horaLlegada;
-        }
+class Paciente implements Comparable<Paciente> {
+    String nombre;
+    String tipo;
+    int horaLlegada;
+    int prioridad;
+    String prioridadTexto;
+    int duracion;
+
+    public Paciente(String nombre, String tipo, int horaLlegada, int prioridad, String prioridadTexto, int duracion) {
+        this.nombre = nombre;
+        this.tipo = tipo;
+        this.horaLlegada = horaLlegada;
+        this.prioridad = prioridad;
+        this.prioridadTexto = prioridadTexto;
+        this.duracion = duracion;
     }
 
-    // Maneja las listas de pacientes
-    static class SecretariaPacientes {
-        Queue<Paciente> Lista_Urgentes = new LinkedList<>(); // Lista de pacientes urgentes
-        Queue<Paciente> Lista_comunes = new LinkedList<>(); // Lista de pacientes comunes
-
-        public synchronized void agregarPaciente(Paciente p) {
-            if (p.urgente) {
-                Lista_Urgentes.add(p);
-                System.out.println("Paciente urgente ingresado: " + p.nombre);
-            } else {
-                Lista_comunes.add(p);
-                System.out.println("Paciente comun ingresado: " + p.nombre);
-            }
-            notify();
-        }
-
-        public synchronized Paciente obtenerSiguientePaciente() {
-            while (Lista_Urgentes.isEmpty() && Lista_comunes.isEmpty()) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (!Lista_Urgentes.isEmpty()) {
-                return Lista_Urgentes.poll();
-            } else {
-                return Lista_comunes.poll();
-            }
-        }
+    @Override
+    public int compareTo(Paciente otro) {
+        return Integer.compare(otro.prioridad, this.prioridad); // Prioridad más alta primero
     }
 
-    // Hilo Paciente
-    static class Hilo_Paciente extends Thread {
-        String nombre;
-        boolean urgente;
-        SecretariaPacientes Secretaria;
-        Semaphore medico;
-        int horaLlegada;
-
-        public Hilo_Paciente(String nombre, boolean urgente, int horaLlegada, SecretariaPacientes Secretaria,
-                Semaphore medico) {
-            this.nombre = nombre;
-            this.urgente = urgente;
-            this.horaLlegada = horaLlegada;
-            this.Secretaria = Secretaria;
-            this.medico = medico;
-        }
-
-        @Override
-        public void run() {
-            Paciente p = new Paciente(nombre, urgente, horaLlegada);
-            Secretaria.agregarPaciente(p);
-        }
-    }
-
-    // Hilo Médico
-    static class Hilo_Medico extends Thread {
-        SecretariaPacientes Secretaria;
-        Semaphore medico;
-
-        int totalPacientes = 0;
-        int urgentes = 0;
-        int comunes = 0;
-        int tiempoActual = 0;
-
-        List<String> logAtenciones = new ArrayList<>();
-
-        public Hilo_Medico(SecretariaPacientes Secretaria, Semaphore medico) {
-            this.Secretaria = Secretaria;
-            this.medico = medico;
-        }
-
-        @Override
-        public void run() {
-            while (totalPacientes < 6) {
-                try {
-                    Paciente p = Secretaria.obtenerSiguientePaciente();
-
-                    medico.acquire();
-
-                    System.out
-                            .println("Medico atiende a: " + p.nombre + " (" + (p.urgente ? "Urgente" : "comun") + ")");
-                    tiempoActual += 10;
-                    System.out.println("Medico termino con: " + p.nombre);
-
-                    totalPacientes++;
-                    if (p.urgente) {
-                        urgentes++;
-                    } else {
-                        comunes++;
-                    }
-
-                    logAtenciones.add(p.nombre + " - " + (p.urgente ? "Urgente" : "Común") + " | Inicio: "
-                            + p.horaLlegada + " | Fin: " + (p.horaLlegada + 10));
-
-                    medico.release();
-
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            try (FileWriter fw = new FileWriter("reporte.txt")) {
-                fw.write("    Reporte Final \n");
-                fw.write("Total pacientes atendidos: " + totalPacientes + "\n");
-                fw.write("  Urgentes: " + urgentes + "\n");
-                fw.write("  comunes : " + comunes + "\n");
-                fw.write("  Tiempo Total de Atención : " + tiempoActual + "\n");
-                for (String log : logAtenciones) {
-                    fw.write(log + "\n");
-                }
-            } catch (IOException e) {
-                System.err.println("Error escribiendo el reporte: " + e.getMessage());
-            }
-        }
+    @Override
+    public String toString() {
+        return nombre + " [" + tipo.toUpperCase() + " | " + prioridadTexto + " (" + prioridad + ") | " + duracion + " min]";
     }
 }
