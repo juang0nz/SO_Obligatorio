@@ -1,6 +1,11 @@
-Ana,true,830
-Luis,false,800
-Carlos,true,900
-Marta,false,1000
-Juan,false,1000
-Sofia,true,1000
+------ Tiempos de Atención para cada Especialidad ------
+Emergencia, 30
+Urgencia, 20
+Comun, 10
+------ Pacientes con Especialidad y Hora de Llegada ------
+Ana, Emergencia, 830
+Luis, Comun, 800
+Carlos, Urgente, 900
+Marta, Urgente, 1000
+Juan, Comun, 1000
+Sofia, Urgente, 1000
