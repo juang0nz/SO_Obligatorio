@@ -1,5 +1,4 @@
-import java.util.concurrent.Semaphore;Add commentMore actions
-import java.io.BufferedReader;
+import java.io.BufferedReader; 
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -8,6 +7,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.Semaphore;
 
 public class Hospital_Ucu {
     volatile static boolean simulacionActiva = true;
@@ -24,7 +24,7 @@ public class Hospital_Ucu {
         SecretariaPacientes Secretaria = new SecretariaPacientes();
 
         List<Integer> Tiempos = leerTiemposDeAtencion("pacientes.txt");
-        List<Paciente> listaPacientes = leerPacientesDesdeArchivo("pacientess.txt");
+        List<Paciente> listaPacientes = leerPacientesDesdeArchivo("pacientes.txt");
         int Tiempo_Emergencia = Tiempos.get(0);
         int Tiempo_Urgencia = Tiempos.get(1);
         int Tiempo_Comunes = Tiempos.get(2);

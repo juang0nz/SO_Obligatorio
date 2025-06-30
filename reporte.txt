@@ -1,0 +1,33 @@
+Reporte Final 
+ ·Total pacientes atendidos: 11
+ ·Emergencias : 1
+ ·Urgentes: 8
+ ·Comunes : 2
+ ·Tiempo Total de Atención : 290
+
+Pacientes atendidos:
+  ·Paciente atendido: Ana - Emergencia | Ingreso Al Hospital: 809 | Salio Del Hospital: 839
+  ·Paciente atendido: Luis - Comun | Ingreso Al Hospital: 800 | Salió Del Hospital: 840
+  ·Paciente atendido: 8 - Urgente | Ingreso Al Hospital: 804 | Salió Del Hospital: 870
+  ·Paciente atendido: 7 - Urgente | Ingreso Al Hospital: 805 | Salió Del Hospital: 900
+  ·Paciente atendido: 6 - Urgente | Ingreso Al Hospital: 806 | Salió Del Hospital: 930
+  ·Paciente atendido: 5 - Urgente | Ingreso Al Hospital: 807 | Salió Del Hospital: 960
+  ·Paciente atendido: 4 - Urgente | Ingreso Al Hospital: 808 | Salió Del Hospital: 990
+  ·Paciente atendido: 1 - Urgente | Ingreso Al Hospital: 810 | Salió Del Hospital: 1020
+  ·Paciente atendido: 2 - Urgente | Ingreso Al Hospital: 811 | Salió Del Hospital: 1050
+  ·Paciente atendido: Carlos - Urgente | Ingreso Al Hospital: 900 | Salió Del Hospital: 1080
+  ·Paciente atendido: Juan - Comun | Ingreso Al Hospital: 1043 | Salió Del Hospital: 1090
+
+Paciente en la sala que no fue terminado de atender.
+  ·No hay paciente que estuviera siendo atendido y no terminara.
+
+Pacientes no atendidos en lista de Espera:
+  ·No hay pacientes en lista de espera.
+
+Pacientes que llegaron y no fueron registrados en lista:
+  ·Paciente urgente no atendido: 3 - Hora de llegada: 810 - Tiempo de atención insuficiente
+  ·Paciente urgente no atendido: Marta - Hora de llegada: 1000 - Tiempo de atención insuficiente
+  ·Paciente urgente no atendido: Sofia - Hora de llegada: 1000 - Tiempo de atención insuficiente
+  ·Paciente de emergencia no atendido: Pedro - Hora de llegada: 1020 - Tiempo de atención insuficiente
+
+Fin del Reporte 
