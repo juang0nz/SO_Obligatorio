@@ -1,39 +1,37 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
+import java.io.*;
+import java.util.*;
 import java.util.concurrent.Semaphore;
 
 public class Hospital_Ucu {
     volatile static boolean simulacionActiva = true;
-    volatile static int tiempoSimulado = 800;
+    volatile static int tiempoSimulado = 480; // Tiempo simulado en minutos (8 horas)
     volatile static int TiempoDeAtecionParaEmergencia = 0;
     volatile static int TiempoDeAtecionParaUrgencia = 0;
     volatile static int TiempoDeAtecionParaComun = 0;
     static TiempoAtencion tiempoAtencion;
-    volatile static int TiempoFinalDeSimulacion = 1100;
+    volatile static int TiempoFinalDeSimulacion = 1380; // Tiempo final de simulación en minutos (23 horas)
+    volatile static int Tiempo_Emergencia;
+    volatile static int Tiempo_Urgencia;
+    volatile static int Tiempo_Comunes;
+    static int tiempoMaximoParaEmergencia = 10; // Tiempo máximo para atender una emergencia
+    static int tiempoMaximoParaUrgencia = 120; // Tiempo máximo para atender una urgencia
 
     public static void main(String[] args) {
         Semaphore medico = new Semaphore(0);
-        Semaphore reloj = new Semaphore (1);
+        Semaphore reloj = new Semaphore(1);
         SecretariaPacientes Secretaria = new SecretariaPacientes();
         Semaphore enfermero = new Semaphore(1);
         List<Integer> Tiempos = leerTiemposDeAtencion("pacientes.txt");
         List<Paciente> listaPacientes = leerPacientesDesdeArchivo("pacientes.txt");
-        int Tiempo_Emergencia = Tiempos.get(0);
-        int Tiempo_Urgencia = Tiempos.get(1);
-        int Tiempo_Comunes = Tiempos.get(2);
+        Tiempo_Emergencia = Tiempos.get(0);
+        Tiempo_Urgencia = Tiempos.get(1);
+        Tiempo_Comunes = Tiempos.get(2);
         tiempoAtencion = new Hospital_Ucu.TiempoAtencion(Tiempo_Emergencia, Tiempo_Urgencia, Tiempo_Comunes);
         new Hilo_Medico(Secretaria, medico, reloj, enfermero, Tiempo_Comunes, Tiempo_Urgencia, Tiempo_Emergencia).start();
-        while (Hospital_Ucu.tiempoSimulado < Hospital_Ucu.TiempoFinalDeSimulacion) { // Simulación por 60 minutos
-                System.out.println("Tiempo simulado: " + Hospital_Ucu.tiempoSimulado + " minutos");
+        while (Hospital_Ucu.tiempoSimulado <= Hospital_Ucu.TiempoFinalDeSimulacion) {
                 try {
                     reloj.acquire();
+                    System.out.println("Tiempo Simulado: " + String.format("%02d:%02d", tiempoSimulado / 60, tiempoSimulado % 60));
                     if (!listaPacientes.isEmpty()) {
                         for (int i = 0; i < listaPacientes.size(); i++) {
                             Paciente p = listaPacientes.get(i);
@@ -117,8 +115,8 @@ public class Hospital_Ucu {
         }
     }
 
-
-    static List<Integer> leerTiemposDeAtencion(String nombreArchivo) {
+    // Método para leer los tiempos de atención desde un archivo
+    static List<Integer> leerTiemposDeAtencion(String nombreArchivo) {   
         List<Integer> Atenciones = new ArrayList<>(Arrays.asList(0, 0, 0));
         try (BufferedReader br = new BufferedReader(new FileReader(nombreArchivo))) {
             String linea;
@@ -133,7 +131,6 @@ public class Hospital_Ucu {
                     } else if (Especialidad.equals("Comun")) {
                         Atenciones.set(2, Integer.parseInt(partes[1].trim()));
                     }
-                    System.out.println("Tiempo de atención leído: " + Especialidad + " - " + partes[1].trim());
                 }
             }
         } catch (IOException e) {
@@ -141,9 +138,8 @@ public class Hospital_Ucu {
         }
         return Atenciones;
     }
-    
 
-    static List<Paciente> leerPacientesDesdeArchivo(String nombreArchivo) {
+    static List<Paciente> leerPacientesDesdeArchivo(String nombreArchivo) {     // Método para leer pacientes desde un archivo
         List<Paciente> pacientes = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(nombreArchivo))) {
             String linea;
@@ -154,7 +150,6 @@ public class Hospital_Ucu {
                     String nombre = partes[0].trim();
                     String area = partes[1].trim();
                     int horaLlegada = Integer.parseInt(partes[2].trim());
-                    System.out.println("Paciente leído: " + nombre + ", Área: " + area + ", Hora de llegada: " + horaLlegada);
                     pacientes.add(new Paciente(nombre, area, horaLlegada, null , null));
 
                 }else if (partes.length == 5){
@@ -164,8 +159,6 @@ public class Hospital_Ucu {
                     int horaLlegada = Integer.parseInt(partes[2].trim());
                     String Especialidad = partes[3].trim();
                     Boolean Trae_Documento = Boolean.parseBoolean(partes[4].trim());
-
-                    System.out.println("Paciente leído: " + nombre + ", Área: " + area + ", Hora de llegada: " + horaLlegada);
                     pacientes.add(new Paciente(nombre, area, horaLlegada, Especialidad , Trae_Documento));
                 }
             }
@@ -175,14 +168,13 @@ public class Hospital_Ucu {
         return pacientes;
     }
 
-
-    // Paciente con nombre y prioridad
-    static class Paciente {
+    static class Paciente { // Paciente con nombre y prioridad
         String nombre;
         String area; // Área de atención (Urgente, Común, Emergencia)
         int horaLlegada;
+        String horaFormaString;
         String Especialidad; // Especialidad del paciente (Odontologo, Carnet de Salud, etc.)
-        Boolean Trae_Documento; // Indicates if brings the necessary documentation
+        Boolean Trae_Documento; // Indica si trae documento o no
 
         Paciente(String nombre, String area, int horaLlegada, String Especialidad, Boolean Trae_Documento ) {
             this.nombre = nombre;
@@ -190,11 +182,11 @@ public class Hospital_Ucu {
             this.horaLlegada = horaLlegada;
             this.Especialidad = Especialidad;
             this.Trae_Documento = Trae_Documento;
+            this.horaFormaString = String.format("%02d:%02d", horaLlegada / 60, horaLlegada % 60);
         }
     }
 
-    // Maneja las listas de pacientes
-    static class SecretariaPacientes {
+    static class SecretariaPacientes {     // Maneja las listas de pacientes
         Queue<Paciente> Lista_Urgentes = new LinkedList<>(); // Lista de pacientes urgentes
         Queue<Paciente> Lista_comunes = new LinkedList<>(); // Lista de pacientes comunes
         Queue<Paciente> Lista_Emergencia = new LinkedList<>(); // Lista de pacientes de emergencia
@@ -205,53 +197,46 @@ public class Hospital_Ucu {
                 System.out.println("Paciente inválido.");
                 return;
             }
+
             switch (p.area) {
                 case "Emergencia":
-                if (Hospital_Ucu.TiempoDeAtecionParaEmergencia < (Hospital_Ucu.TiempoFinalDeSimulacion - Hospital_Ucu.tiempoSimulado)) {
-                    if(Hospital_Ucu.TiempoDeAtecionParaEmergencia < 10) {
+                if (Hospital_Ucu.TiempoDeAtecionParaEmergencia <= (Hospital_Ucu.TiempoFinalDeSimulacion - Hospital_Ucu.tiempoSimulado)) {
+                    if(Hospital_Ucu.TiempoDeAtecionParaEmergencia <= Hospital_Ucu.tiempoMaximoParaEmergencia) {
                         Lista_Emergencia.add(p);
-                        System.out.println("Paciente de emergencia ingresado: " + p.nombre);
                         tiempoAtencion.agregarTiempoAtencion(p.area);
                         break;
 
                     } else {
-                        System.out.println("Lo sentimos, el tiempo de atención para Emergencia es insuficiente.");
-                        logNoAtenciones.add("  ·Paciente de emergencia no atendido: " + p.nombre + " - Hora de llegada: " + p.horaLlegada + " - Tiempo de atención insuficiente");
+                        logNoAtenciones.add("  ·Paciente de emergencia no atendido: " + p.nombre + " - Hora de llegada: " + p.horaFormaString  + " - Tiempo de atención insuficiente");
                         break;
                     }
                 } else {
-                    System.out.println("Lo sentimos, el tiempo de atención para Emergencia es insuficiente.");
-                    logNoAtenciones.add("  ·Paciente de emergencia no atendido: " + p.nombre + " - Hora de llegada: " + p.horaLlegada + " - Tiempo de atención insuficiente");
+                    logNoAtenciones.add("  ·Paciente de emergencia no atendido: " + p.nombre + " - Hora de llegada: " + p.horaFormaString + " - Tiempo de atención insuficiente");
                     break;
                 }
                 case "Urgente":
-                if (Hospital_Ucu.TiempoDeAtecionParaUrgencia < (Hospital_Ucu.TiempoFinalDeSimulacion - Hospital_Ucu.tiempoSimulado)){
-                    if (Hospital_Ucu.TiempoDeAtecionParaUrgencia < 200) {
+                if (Hospital_Ucu.TiempoDeAtecionParaUrgencia <= (Hospital_Ucu.TiempoFinalDeSimulacion - Hospital_Ucu.tiempoSimulado)){
+                    if (Hospital_Ucu.TiempoDeAtecionParaUrgencia <= Hospital_Ucu.tiempoMaximoParaUrgencia) {
                         Lista_Urgentes.add(p);
-                        System.out.println("Paciente urgente ingresado: " + p.nombre);
                         tiempoAtencion.agregarTiempoAtencion(p.area);
                         break;
                     } else {
-                        System.out.println("Lo sentimos, el tiempo de atención para Urgencia es insuficiente.");
-                        logNoAtenciones.add("  ·Paciente urgente no atendido: " + p.nombre + " - Hora de llegada: " + p.horaLlegada + " - Tiempo de atención insuficiente");
+                        logNoAtenciones.add("  ·Paciente urgente no atendido: " + p.nombre + " - Hora de llegada: " + p.horaFormaString + " - Tiempo de atención insuficiente");
                         break;
                     }
                 }else {
-                    System.out.println("Lo sentimos, el tiempo de atención para Urgencia es insuficiente.");
-                    logNoAtenciones.add("  ·Paciente urgente no atendido: " + p.nombre + " - Hora de llegada: " + p.horaLlegada + " - Tiempo de atención insuficiente");
+                    logNoAtenciones.add("  ·Paciente urgente no atendido: " + p.nombre + " - Hora de llegada: " + p.horaFormaString + " - Tiempo de atención insuficiente");
                     break;
                 }
 
                 case "Comun":
-                if (Hospital_Ucu.TiempoDeAtecionParaComun < (Hospital_Ucu.TiempoFinalDeSimulacion - Hospital_Ucu.tiempoSimulado)) {
+                if (Hospital_Ucu.TiempoDeAtecionParaComun <= (Hospital_Ucu.TiempoFinalDeSimulacion - Hospital_Ucu.tiempoSimulado)) {
                     if ("Odontologo".equalsIgnoreCase(p.Especialidad) || "CarnetDeSalud".equalsIgnoreCase(p.Especialidad)) {
                         if (p.Trae_Documento) {
                             Lista_comunes.add(p);
-                            System.out.println("Paciente por " + p.Especialidad + " ingresado: " + p.nombre);
                             tiempoAtencion.agregarTiempoAtencion(p.area);
                         } else {
-                            System.out.println("Lo sentimos, si no trae la documentación no puede ser atendido.");
-                            logNoAtenciones.add("  ·Paciente " + p.Especialidad + " no atendido: " + p.nombre + " - Hora de llegada: " + p.horaLlegada + " - No trae documento");
+                            logNoAtenciones.add("  ·Paciente " + p.Especialidad + " no atendido: " + p.nombre + " - Hora de llegada: " + p.horaFormaString + " - No trae documento");
                         }
                     } else {
                         Lista_comunes.add(p);
@@ -259,13 +244,11 @@ public class Hospital_Ucu {
                     }
                     break;
                 } else {
-                    System.out.println("Lo sentimos, el tiempo de atención para Común es insuficiente.");
-                    logNoAtenciones.add("  ·Paciente común no atendido: " + p.nombre + " - Hora de llegada: " + p.horaLlegada + " - Tiempo de atención insuficiente");
+                    logNoAtenciones.add("  ·Paciente común no atendido: " + p.nombre + " - Hora de llegada: " + p.horaFormaString + " - Tiempo de atención insuficiente");
                     break;
                 }
                 default:
-                    System.out.println("Área desconocida: " + p.area);
-                    logNoAtenciones.add("  ·Paciente no atendido: " + p.nombre + " - Hora de llegada: " + p.horaLlegada + " - Área desconocida");
+                    logNoAtenciones.add("  ·Paciente no atendido: " + p.nombre + " - Hora de llegada: " + p.horaFormaString + " - Área desconocida");
                 }
         }   
 
@@ -317,27 +300,21 @@ public class Hospital_Ucu {
 
         @Override
         public synchronized void run() {
-            System.out.println("Tiempoo de atención para Emergencia: " + Tiempo_Emergencia);
-            System.out.println("Tiempoo de atención para Urgencia: " + Tiempo_Urgencia);
-            System.out.println("Tiempoo de atención para Comunes: " + Tiempo_Comunes);
             while (Hospital_Ucu.simulacionActiva) {
                 try {
                     enfermero.acquire();
-                    System.out.println("Enfermero habilita a medico para atender pacientes.");
                     medico.acquire();
                     if (Paciente_Con_Emergencia) {
                         tiempoDeEmergencia --;
                         tiempoAtencion.restarTiempoAtencion(p.area);
-                        System.out.println("Atendiendo paciente de emergencia: " + pEmergencia.nombre + " - Tiempo restante: " + tiempoDeEmergencia);
                         if (tiempoDeEmergencia == 0) {
                             totalPacientes++;
                             emergencias++;
                             Paciente_Con_Emergencia = false;
-                            logAtenciones.add("  ·Paciente atendido: " + pEmergencia.nombre + " - Emergencia | Ingreso Al Hospital: " + pEmergencia.horaLlegada + " | Salio Del Hospital: " + Hospital_Ucu.tiempoSimulado);
+                            logAtenciones.add("  ·Paciente atendido: " + pEmergencia.nombre + " - Emergencia | Ingreso Al Hospital: " + pEmergencia.horaFormaString + " | Salio Del Hospital: " + String.format("%02d:%02d", tiempoSimulado / 60, tiempoSimulado % 60));
                         }
                         sleep(50);
                         enfermero.release();
-                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     } else if (!Secretaria.Lista_Emergencia.isEmpty()) {
                         pEmergencia = Secretaria.Lista_Emergencia.poll();
@@ -347,12 +324,10 @@ public class Hospital_Ucu {
                         tiempoTotalDeAtencion += Tiempo_Emergencia;
                         sleep(50);
                         enfermero.release();
-                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     } else if (paciente_en_Sala) {
                         tiempoActualDeAtencion --;
                         tiempoAtencion.restarTiempoAtencion(p.area);
-                        System.out.println("Estoy atendiendo paciente: " + p.nombre + " - " + p.area+ " - Tiempo restante: " + tiempoActualDeAtencion);
                         if (tiempoActualDeAtencion <= 0) {
                             paciente_en_Sala = false;
                             totalPacientes++;
@@ -363,11 +338,9 @@ public class Hospital_Ucu {
                                 comunes++;
                                 tiempoTotalDeAtencion += Tiempo_Comunes;
                             }
-                            System.out.println("Paciente atendido: " + p.nombre + " - " + p.area + " - Tiempo total de atención: " + tiempoActualDeAtencion);
-                            logAtenciones.add("  ·Paciente atendido: " +p.nombre + " - " + p.area + " | Ingreso Al Hospital: " + p.horaLlegada + " | Salió Del Hospital: " + Hospital_Ucu.tiempoSimulado);
+                            logAtenciones.add("  ·Paciente atendido: " +p.nombre + " - " + p.area + " | Ingreso Al Hospital: " + p.horaFormaString + " | Salió Del Hospital: " + String.format("%02d:%02d", tiempoSimulado / 60, tiempoSimulado % 60));
                         }
                         sleep(50);
-                        System.out.println("Enfermero libera para proximo paciente");
                         enfermero.release();
                         reloj.release();
                     } else if (!Secretaria.Lista_Urgentes.isEmpty() || !Secretaria.Lista_comunes.isEmpty()) {
@@ -379,17 +352,13 @@ public class Hospital_Ucu {
                             tiempoActualDeAtencion = Tiempo_Comunes-1;
                             tiempoAtencion.restarTiempoAtencion(p.area);
                         }
-                        System.out.println("Atendiendo paciente: " + p.nombre + " - " + p.area + " - Tiempo restante: " + tiempoActualDeAtencion);
                         paciente_en_Sala = true;
                         sleep(50);
                         enfermero.release();
-                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     } else {
-                        System.out.println("No hay pacientes en espera. Médico esperando...");
                         sleep(50);
                         enfermero.release();
-                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     }
                 } catch (InterruptedException e) {
@@ -397,62 +366,61 @@ public class Hospital_Ucu {
                 }
             }
             try (
-                    FileWriter fw = new FileWriter("reporte.txt")) {
-                fw.write("Reporte Final \n");
-                fw.write(" ·Total pacientes atendidos: " + totalPacientes + "\n");
-                fw.write(" ·Emergencias : " + emergencias + "\n");
-                fw.write(" ·Urgentes: " + urgentes + "\n");
-                fw.write(" ·Comunes : " + comunes + "\n");
-                fw.write(" ·Tiempo Total de Atención : " + tiempoTotalDeAtencion + "\n");
-                fw.write("\n");
+                FileWriter fw = new FileWriter("reporte.txt")) {
+                    fw.write("Reporte Final \n");
+                    fw.write(" ·Total pacientes atendidos: " + totalPacientes + "\n");
+                    fw.write(" ·Emergencias : " + emergencias + "\n");
+                    fw.write(" ·Urgentes: " + urgentes + "\n");
+                    fw.write(" ·Comunes : " + comunes + "\n");
+                    fw.write(" ·Tiempo Total de Atención : " + tiempoTotalDeAtencion + "\n");
+                    fw.write("\n");
 
-
-                fw.write("Pacientes atendidos:\n");
-                for (String log : logAtenciones) {
-                    fw.write(log + "\n");
-                }
-                fw.write("\n");
-
-
-                fw.write("Paciente en la sala que no fue terminado de atender.\n");
-                if(paciente_en_Sala) {
-                    fw.write("  ·Paciente en sala de espera: " + p.nombre + " - Área: " + p.area + " - Hora de llegada: " + p.horaLlegada + "\n");
-                }else {
-                    fw.write("  ·No hay paciente que estuviera siendo atendido y no terminara.\n");
-                }
-                fw.write( "\n");
-
-
-                fw.write("Pacientes no atendidos en lista de Espera:\n");
-                if (Secretaria.Lista_Emergencia.isEmpty() && Secretaria.Lista_Urgentes.isEmpty() && Secretaria.Lista_comunes.isEmpty()) {
-                    fw.write("  ·No hay pacientes en lista de espera.\n");
-                } else {
-                    for (Paciente paciente : Secretaria.Lista_Emergencia) {
-                        fw.write("  ·Paciente de emergencia no atendido: " + paciente.nombre + " - Hora de llegada: " + paciente.horaLlegada + "\n");
+                    fw.write("Pacientes atendidos:\n");
+                    if (logAtenciones.isEmpty()) {
+                        fw.write("  ·No hay pacientes atendidos.\n");
+                    } else {
+                        for (String log : logAtenciones) {
+                            fw.write(log + "\n");
+                        }
                     }
-                    for (Paciente paciente : Secretaria.Lista_Urgentes) {
-                        fw.write("  ·Paciente urgente no atendido: " + paciente.nombre + " - Hora de llegada: " + paciente.horaLlegada + "\n");
-                    }
-                    for (Paciente paciente : Secretaria.Lista_comunes) {
-                        fw.write("  ·Paciente común no atendido: " + paciente.nombre + " - Hora de llegada: " + paciente.horaLlegada + "\n");
-                    }
-                }
-                fw .write("\n");
+                    fw.write("\n");
 
-
-                fw.write("Pacientes que llegaron y no fueron registrados en lista:\n");
-                if (Secretaria.logNoAtenciones.isEmpty()) {
-                    fw.write("  ·No hay personas que llegaran y no se les diera un lugar en lista de espera.\n");
-                }else {
-                    for (String log : Secretaria.logNoAtenciones) {
-                        fw.write(log + "\n");
+                    fw.write("Paciente en la sala que no fue terminado de atender.\n");
+                    if(paciente_en_Sala) {
+                        fw.write("  ·Paciente en sala de espera: " + p.nombre + " - Área: " + p.area + " - Hora de llegada: " + p.horaFormaString + "\n");
+                    }else {
+                        fw.write("  ·No hay paciente que estuviera siendo atendido y no terminara.\n");
                     }
-                }
-                fw .write("\n");
+                    fw.write( "\n");
 
-                
-                fw.write("Fin del Reporte \n");
-                System.out.println("Reporte escrito en reporte.txt");
+                    fw.write("Pacientes no atendidos en lista de Espera:\n");
+                    if (Secretaria.Lista_Emergencia.isEmpty() && Secretaria.Lista_Urgentes.isEmpty() && Secretaria.Lista_comunes.isEmpty()) {
+                        fw.write("  ·No hay pacientes en lista de espera.\n");
+                    } else {
+                        for (Paciente paciente : Secretaria.Lista_Emergencia) {
+                            fw.write("  ·Paciente de emergencia no atendido: " + paciente.nombre + " - Hora de llegada: " + paciente.horaFormaString + "\n");
+                        }
+                        for (Paciente paciente : Secretaria.Lista_Urgentes) {
+                            fw.write("  ·Paciente urgente no atendido: " + paciente.nombre + " - Hora de llegada: " + paciente.horaFormaString + "\n");
+                        }
+                        for (Paciente paciente : Secretaria.Lista_comunes) {
+                            fw.write("  ·Paciente común no atendido: " + paciente.nombre + " - Hora de llegada: " + paciente.horaFormaString + "\n");
+                        }
+                    }
+                    fw .write("\n");
+
+                    fw.write("Pacientes que llegaron y no fueron registrados en lista:\n");
+                    if (Secretaria.logNoAtenciones.isEmpty()) {
+                        fw.write("  ·No hay personas que llegaran y no se les diera un lugar en lista de espera.\n");
+                    }else {
+                        for (String log : Secretaria.logNoAtenciones) {
+                            fw.write(log + "\n");
+                        }
+                    }
+                    fw .write("\n");
+                    
+                    fw.write("Fin del Reporte \n");
+                    System.out.println("Reporte escrito en reporte.txt");
             } catch (IOException e) {
                 System.err.println("Error escribiendo el reporte: " + e.getMessage());
             }
