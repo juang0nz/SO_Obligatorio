@@ -1,4 +1,4 @@
-import java.io.BufferedReader; 
+import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -22,14 +22,14 @@ public class Hospital_Ucu {
         Semaphore medico = new Semaphore(0);
         Semaphore reloj = new Semaphore (1);
         SecretariaPacientes Secretaria = new SecretariaPacientes();
-
+        Semaphore enfermero = new Semaphore(1);
         List<Integer> Tiempos = leerTiemposDeAtencion("pacientes.txt");
         List<Paciente> listaPacientes = leerPacientesDesdeArchivo("pacientes.txt");
         int Tiempo_Emergencia = Tiempos.get(0);
         int Tiempo_Urgencia = Tiempos.get(1);
         int Tiempo_Comunes = Tiempos.get(2);
         tiempoAtencion = new Hospital_Ucu.TiempoAtencion(Tiempo_Emergencia, Tiempo_Urgencia, Tiempo_Comunes);
-        new Hilo_Medico(Secretaria, medico, reloj, Tiempo_Comunes, Tiempo_Urgencia, Tiempo_Emergencia).start();
+        new Hilo_Medico(Secretaria, medico, reloj, enfermero, Tiempo_Comunes, Tiempo_Urgencia, Tiempo_Emergencia).start();
         while (Hospital_Ucu.tiempoSimulado < Hospital_Ucu.TiempoFinalDeSimulacion) { // Simulación por 60 minutos
                 System.out.println("Tiempo simulado: " + Hospital_Ucu.tiempoSimulado + " minutos");
                 try {
@@ -284,6 +284,7 @@ public class Hospital_Ucu {
         SecretariaPacientes Secretaria;
         Semaphore medico;
         Semaphore reloj;
+        Semaphore enfermero;
         private boolean Paciente_Con_Emergencia = false;
         private boolean paciente_en_Sala = false; // Indica si hay un paciente en la sala de espera
         private Paciente p = null; // Paciente actual en la sala de espera;
@@ -303,11 +304,12 @@ public class Hospital_Ucu {
 
         List<String> logAtenciones = new ArrayList<>();
 
-        public Hilo_Medico(SecretariaPacientes Secretaria, Semaphore medico, Semaphore reloj, int Tiempo_Comunes,
+        public Hilo_Medico(SecretariaPacientes Secretaria, Semaphore medico, Semaphore reloj, Semaphore enfermero, int Tiempo_Comunes,
                 int Tiempo_Urgencia, int Tiempo_Emergencia) {
             this.Secretaria = Secretaria;
             this.medico = medico;
             this.reloj = reloj;
+            this.enfermero = enfermero;
             this.Tiempo_Comunes = Tiempo_Comunes;
             this.Tiempo_Urgencia = Tiempo_Urgencia;
             this.Tiempo_Emergencia = Tiempo_Emergencia;
@@ -320,6 +322,8 @@ public class Hospital_Ucu {
             System.out.println("Tiempoo de atención para Comunes: " + Tiempo_Comunes);
             while (Hospital_Ucu.simulacionActiva) {
                 try {
+                    enfermero.acquire();
+                    System.out.println("Enfermero habilita a medico para atender pacientes.");
                     medico.acquire();
                     if (Paciente_Con_Emergencia) {
                         tiempoDeEmergencia --;
@@ -332,6 +336,8 @@ public class Hospital_Ucu {
                             logAtenciones.add("  ·Paciente atendido: " + pEmergencia.nombre + " - Emergencia | Ingreso Al Hospital: " + pEmergencia.horaLlegada + " | Salio Del Hospital: " + Hospital_Ucu.tiempoSimulado);
                         }
                         sleep(50);
+                        enfermero.release();
+                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     } else if (!Secretaria.Lista_Emergencia.isEmpty()) {
                         pEmergencia = Secretaria.Lista_Emergencia.poll();
@@ -340,6 +346,8 @@ public class Hospital_Ucu {
                         tiempoAtencion.restarTiempoAtencion(p.area);
                         tiempoTotalDeAtencion += Tiempo_Emergencia;
                         sleep(50);
+                        enfermero.release();
+                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     } else if (paciente_en_Sala) {
                         tiempoActualDeAtencion --;
@@ -359,6 +367,8 @@ public class Hospital_Ucu {
                             logAtenciones.add("  ·Paciente atendido: " +p.nombre + " - " + p.area + " | Ingreso Al Hospital: " + p.horaLlegada + " | Salió Del Hospital: " + Hospital_Ucu.tiempoSimulado);
                         }
                         sleep(50);
+                        System.out.println("Enfermero libera para proximo paciente");
+                        enfermero.release();
                         reloj.release();
                     } else if (!Secretaria.Lista_Urgentes.isEmpty() || !Secretaria.Lista_comunes.isEmpty()) {
                         p = Secretaria.obtenerSiguientePaciente();
@@ -372,10 +382,14 @@ public class Hospital_Ucu {
                         System.out.println("Atendiendo paciente: " + p.nombre + " - " + p.area + " - Tiempo restante: " + tiempoActualDeAtencion);
                         paciente_en_Sala = true;
                         sleep(50);
+                        enfermero.release();
+                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     } else {
                         System.out.println("No hay pacientes en espera. Médico esperando...");
                         sleep(50);
+                        enfermero.release();
+                        System.out.println("Enfermero libera para proximo paciente");
                         reloj.release();
                     }
                 } catch (InterruptedException e) {
