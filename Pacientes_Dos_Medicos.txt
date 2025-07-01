@@ -1,0 +1,16 @@
+------ Tiempos de Atención para cada Especialidad ------
+Emergencia, 30
+Urgencia, 20
+Comun, 10
+------ Pacientes con Especialidad y Hora de Llegada ------
+Ana, Emergencia, 530
+Luis, Comun, 500
+Carlos, Urgente, 600
+Marta, Urgente, 960
+Juan, Comun, 950
+Sofia, Urgente, 950
+Marcos, Urgente, 833
+Alberto, Emergencia, 911
+Valentina, Comun, 1010
+Melina, Comun, 1010
+Santiago, Urgente, 801
